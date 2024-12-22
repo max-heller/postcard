@@ -38,6 +38,41 @@ struct Generator {
     postcard_schema: Path,
 }
 
+#[derive(Default)]
+struct SerdeAttrs {
+    skip_serializing: bool,
+    skip_deserializing: bool,
+}
+
+impl SerdeAttrs {
+    fn skipped(&self) -> bool {
+        self.skip_serializing && self.skip_deserializing
+    }
+
+    fn parse(attrs: &[syn::Attribute]) -> Self {
+        let mut parsed = Self::default();
+        for attr in attrs {
+            if attr.path().is_ident("serde") {
+                // Parse serde attributes to the best of our abilities but don't cause
+                // a compilation error if we can't
+                let _: Result<(), syn::Error> = attr.parse_nested_meta(|meta| {
+                    // #[serde(skip)]
+                    if meta.path.is_ident("skip") {
+                        parsed.skip_serializing = true;
+                        parsed.skip_deserializing = true;
+                    } else if meta.path.is_ident("skip_serializing") {
+                        parsed.skip_serializing = true;
+                    } else if meta.path.is_ident("skip_deserializing") {
+                        parsed.skip_deserializing = true;
+                    }
+                    Ok(())
+                });
+            }
+        }
+        parsed
+    }
+}
+
 impl Generator {
     fn new(input: &DeriveInput) -> syn::Result<Self> {
         let mut generator = Self {
@@ -101,26 +136,33 @@ impl Generator {
         let postcard_schema = &self.postcard_schema;
         match fields {
             syn::Fields::Named(fields) => {
-                let fields = fields.named.iter().map(|f| {
-                let ty = &f.ty;
-                let name = f.ident.as_ref().unwrap().to_string();
-                quote_spanned!(f.span() => &#postcard_schema::schema::NamedValue { name: #name, ty: <#ty as #postcard_schema::Schema>::SCHEMA })
-            });
+                let fields = fields.named.iter().filter_map(|f| {
+                    let attrs = SerdeAttrs::parse(&f.attrs);
+                    (!attrs.skipped()).then(|| {
+                        let ty = &f.ty;
+                        let name = f.ident.as_ref().unwrap().to_string();
+                        quote_spanned!(f.span() => &#postcard_schema::schema::NamedValue { name: #name, ty: <#ty as #postcard_schema::Schema>::SCHEMA })
+                    })
+                });
                 quote! { &#postcard_schema::schema::DataModelType::Struct(&[
                     #( #fields ),*
                 ]) }
             }
             syn::Fields::Unnamed(fields) => {
                 if fields.unnamed.len() == 1 {
-                    let f = fields.unnamed[0].clone();
+                    // Serde seems to ignore `#[serde(skip)]` on newtype struct fields
+                    let f = &fields.unnamed[0];
                     let ty = &f.ty;
                     let qs = quote_spanned!(f.span() => <#ty as #postcard_schema::Schema>::SCHEMA);
 
                     quote! { &#postcard_schema::schema::DataModelType::NewtypeStruct(#qs) }
                 } else {
-                    let fields = fields.unnamed.iter().map(|f| {
-                        let ty = &f.ty;
-                        quote_spanned!(f.span() => <#ty as #postcard_schema::Schema>::SCHEMA)
+                    let fields = fields.unnamed.iter().filter_map(|f| {
+                        let attrs = SerdeAttrs::parse(&f.attrs);
+                        (!attrs.skipped()).then(|| {
+                            let ty = &f.ty;
+                            quote_spanned!(f.span() => <#ty as #postcard_schema::Schema>::SCHEMA)
+                        })
                     });
                     quote! { &#postcard_schema::schema::DataModelType::TupleStruct(&[
                         #( #fields ),*
@@ -137,26 +179,38 @@ impl Generator {
         let postcard_schema = &self.postcard_schema;
         match fields {
             syn::Fields::Named(fields) => {
-                let fields = fields.named.iter().map(|f| {
-                let ty = &f.ty;
-                let name = f.ident.as_ref().unwrap().to_string();
-                quote_spanned!(f.span() => &#postcard_schema::schema::NamedValue { name: #name, ty: <#ty as #postcard_schema::Schema>::SCHEMA })
-            });
+                let fields = fields.named.iter().filter_map(|f| {
+                    let attrs = SerdeAttrs::parse(&f.attrs);
+                    (!attrs.skipped()).then(|| {
+                        let ty = &f.ty;
+                        let name = f.ident.as_ref().unwrap().to_string();
+                        quote_spanned!(f.span() => &#postcard_schema::schema::NamedValue { name: #name, ty: <#ty as #postcard_schema::Schema>::SCHEMA })
+                    })
+                });
                 quote! { &#postcard_schema::schema::DataModelVariant::StructVariant(&[
                     #( #fields ),*
                 ]) }
             }
             syn::Fields::Unnamed(fields) => {
                 if fields.unnamed.len() == 1 {
-                    let f = fields.unnamed[0].clone();
-                    let ty = &f.ty;
-                    let qs = quote_spanned!(f.span() => <#ty as #postcard_schema::Schema>::SCHEMA);
-
-                    quote! { &#postcard_schema::schema::DataModelVariant::NewtypeVariant(#qs) }
-                } else {
-                    let fields = fields.unnamed.iter().map(|f| {
+                    let f = &fields.unnamed[0];
+                    let attrs = SerdeAttrs::parse(&f.attrs);
+                    if attrs.skipped() {
+                        quote! { &#postcard_schema::schema::DataModelVariant::UnitVariant }
+                    } else {
                         let ty = &f.ty;
-                        quote_spanned!(f.span() => <#ty as #postcard_schema::Schema>::SCHEMA)
+                        let qs =
+                            quote_spanned!(f.span() => <#ty as #postcard_schema::Schema>::SCHEMA);
+
+                        quote! { &#postcard_schema::schema::DataModelVariant::NewtypeVariant(#qs) }
+                    }
+                } else {
+                    let fields = fields.unnamed.iter().filter_map(|f| {
+                        let attrs = SerdeAttrs::parse(&f.attrs);
+                        (!attrs.skipped()).then(|| {
+                            let ty = &f.ty;
+                            quote_spanned!(f.span() => <#ty as #postcard_schema::Schema>::SCHEMA)
+                        })
                     });
                     quote! { &#postcard_schema::schema::DataModelVariant::TupleVariant(&[
                         #( #fields ),*
@@ -169,7 +223,7 @@ impl Generator {
         }
     }
 
-    /// Add a bound `T: MaxSize` to every type parameter T.
+    /// Add a bound `T: Schema` to every type parameter T.
     fn add_trait_bounds(&self, mut generics: Generics) -> Generics {
         let postcard_schema = &self.postcard_schema;
         for param in &mut generics.params {

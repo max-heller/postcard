@@ -263,21 +263,6 @@ mod tests {
 
     use super::*;
 
-    #[derive(Serialize, Deserialize, Schema, PartialEq, Debug)]
-    enum Enum {
-        Struct { a: u8, b: u8 },
-        Tuple(bool, u8),
-        Newtype(u32),
-        Unit,
-    }
-
-    #[derive(Serialize, Deserialize, Schema, PartialEq, Debug)]
-    struct Struct {
-        a: Option<u8>,
-        b: Enum,
-        c: u8,
-    }
-
     fn postcard_to_json<T: Schema>(postcard: &[u8]) -> serde_json::Value {
         let schema = T::SCHEMA.into();
         let leaky = lossless::reserialize_leaky(
@@ -300,7 +285,7 @@ mod tests {
         let mut serializer = postcard::Serializer {
             output: postcard::ser_flavors::AllocVec::new(),
         };
-        lossless::reserialize_leaky(&T::SCHEMA.into(), json, &mut serializer).unwrap();
+        lossless::reserialize_leaky(&dbg!(T::SCHEMA).into(), json, &mut serializer).unwrap();
         serializer.output.finalize().unwrap()
     }
 
@@ -348,6 +333,21 @@ mod tests {
         assert_eq!(from_json_roundtripped, from_json);
     }
 
+    #[derive(Serialize, Deserialize, Schema, PartialEq, Debug)]
+    enum Enum {
+        Struct { a: u8, b: u8 },
+        Tuple(bool, u8),
+        Newtype(u32),
+        Unit,
+    }
+
+    #[derive(Serialize, Deserialize, Schema, PartialEq, Debug)]
+    struct Struct {
+        a: Option<u8>,
+        b: Enum,
+        c: u8,
+    }
+
     #[test]
     fn json() {
         use test_postcard_to_json_and_back as test;
@@ -383,6 +383,47 @@ mod tests {
         use test_json_to_postcard as test;
         test::<Enum>(json!({"Struct": {"a": 5, "b": 0, "UNUSED": 10}}));
         test::<Struct>(json!({"a": 5, "xyz": "wat", "b": {"Newtype": 32}, "c": 10}));
+    }
+
+    #[test]
+    fn skipped_fields() {
+        #[derive(Serialize, Deserialize, Schema, PartialEq, Debug)]
+        enum Enum {
+            Struct {
+                #[serde(skip)]
+                a: u8,
+                b: u8,
+            },
+            Tuple(#[serde(skip)] bool, u8),
+            Newtype(#[serde(skip)] u32),
+            Unit,
+        }
+
+        #[derive(Serialize, Deserialize, Schema, PartialEq, Debug)]
+        struct Struct {
+            a: u8,
+            #[serde(skip)]
+            b: u8,
+            c: u8,
+        }
+
+        #[derive(Serialize, Deserialize, Schema, PartialEq, Debug)]
+        struct Tuple(u8, #[serde(skip)] u8, u8);
+
+        #[derive(Serialize, Deserialize, Schema, PartialEq, Debug)]
+        struct Newtype(#[serde(skip)] u8);
+
+        use test_json_to_postcard as test;
+        test::<Struct>(json!({"a": 5, "c": 10}));
+        test::<Tuple>(json!([5, 10]));
+
+        // Serde doesn't seem to handle #[serde(skip)] on newtype struct fields,
+        // but it does on newtype variant fields
+        test::<Newtype>(json!(5));
+        test::<Enum>(json!("Newtype"));
+
+        test::<Enum>(json!({"Tuple": [10]}));
+        test::<Enum>(json!({"Struct": {"b": 0}}));
     }
 
     #[test]
