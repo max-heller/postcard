@@ -1,6 +1,6 @@
 [package]
 name = "postcard-schema"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["James Munns <james@onevariable.com>"]
 edition = "2021"
 readme = "README.md"
@@ -58,12 +58,6 @@ version = "0.33.0"
 optional = true
 default-features = false
 
-[dev-dependencies.nalgebra_v0_33]
-package = "nalgebra"
-version = "0.33.0"
-default-features = false
-features = ["serde-serialize-no-std"]
-
 [dependencies.postcard-derive]
 path = "../postcard-derive"
 version = "0.2.0"
@@ -73,6 +67,12 @@ optional = true
 path = "../postcard"
 version = "1.0"
 features = ["use-std"]
+
+[dev-dependencies.nalgebra_v0_33]
+package = "nalgebra"
+version = "0.33.0"
+default-features = false
+features = ["serde-serialize-no-std"]
 
 [features]
 default = []

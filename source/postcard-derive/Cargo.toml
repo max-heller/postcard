@@ -1,6 +1,6 @@
 [package]
 name = "postcard-derive"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
     "Lachlan Sneff <lachlan.sneff@gmail.com>",
     "James Munns <james@onevariable.com>",
@@ -28,6 +28,6 @@ proc-macro = true
 all-features = true
 
 [dependencies]
-syn = "1.0"
+syn = "2.0"
 quote = "1.0"
 proc-macro2 = "1.0"
