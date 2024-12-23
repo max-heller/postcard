@@ -3,8 +3,10 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 //! # Postcard Schema
 
-pub mod impls;
-pub mod schema;
+mod impls;
+mod schema;
+
+pub use schema::*;
 
 /// Derive [`Schema`] for a struct or enum
 ///
@@ -25,7 +27,7 @@ pub mod schema;
 /// ## `#[postcard(crate = ...)]`
 ///
 /// The `#[postcard(crate = ...)]` attribute can be used to specify a path to the `postcard_schema`
-/// crate instance to use when referring to [`Schema`] and [schema types](schema) from generated
+/// crate instance to use when referring to [`Schema`] and schema types from generated
 /// code. This is normally only applicable when invoking re-exported derives from a different crate.
 ///
 /// ```

@@ -27,7 +27,7 @@ pub fn do_derive_schema(item: proc_macro::TokenStream) -> proc_macro::TokenStrea
     let postcard_schema = &generator.postcard_schema;
     let expanded = quote! {
         impl #impl_generics #postcard_schema::Schema for #name #ty_generics #where_clause {
-            const SCHEMA: &'static #postcard_schema::schema::NamedType = #ty;
+            const SCHEMA: &'static #postcard_schema::NamedType = #ty;
         }
     };
 
@@ -76,21 +76,21 @@ impl Generator {
                     .map(|v| self.generate_variants(&v.fields));
 
                 quote! {
-                    &#postcard_schema::schema::DataModelType::Enum(&[
-                        #( &#postcard_schema::schema::NamedVariant { name: #name, ty: #ty } ),*
+                    &#postcard_schema::DataModelType::Enum(&[
+                        #( &#postcard_schema::NamedVariant { name: #name, ty: #ty } ),*
                     ])
                 }
             }
             Data::Union(_) => {
                 return Err(syn::Error::new(
                     span,
-                    "unions are not supported by `postcard::experimental::schema`",
+                    "unions are not supported by postcard-schema",
                 ))
             }
         };
 
         Ok(quote! {
-            &#postcard_schema::schema::NamedType {
+            &#postcard_schema::NamedType {
                 name: #name,
                 ty: #ty,
             }
@@ -104,9 +104,9 @@ impl Generator {
                 let fields = fields.named.iter().map(|f| {
                 let ty = &f.ty;
                 let name = f.ident.as_ref().unwrap().to_string();
-                quote_spanned!(f.span() => &#postcard_schema::schema::NamedValue { name: #name, ty: <#ty as #postcard_schema::Schema>::SCHEMA })
+                quote_spanned!(f.span() => &#postcard_schema::NamedValue { name: #name, ty: <#ty as #postcard_schema::Schema>::SCHEMA })
             });
-                quote! { &#postcard_schema::schema::DataModelType::Struct(&[
+                quote! { &#postcard_schema::DataModelType::Struct(&[
                     #( #fields ),*
                 ]) }
             }
@@ -116,19 +116,19 @@ impl Generator {
                     let ty = &f.ty;
                     let qs = quote_spanned!(f.span() => <#ty as #postcard_schema::Schema>::SCHEMA);
 
-                    quote! { &#postcard_schema::schema::DataModelType::NewtypeStruct(#qs) }
+                    quote! { &#postcard_schema::DataModelType::NewtypeStruct(#qs) }
                 } else {
                     let fields = fields.unnamed.iter().map(|f| {
                         let ty = &f.ty;
                         quote_spanned!(f.span() => <#ty as #postcard_schema::Schema>::SCHEMA)
                     });
-                    quote! { &#postcard_schema::schema::DataModelType::TupleStruct(&[
+                    quote! { &#postcard_schema::DataModelType::TupleStruct(&[
                         #( #fields ),*
                     ]) }
                 }
             }
             syn::Fields::Unit => {
-                quote! { &#postcard_schema::schema::DataModelType::UnitStruct }
+                quote! { &#postcard_schema::DataModelType::UnitStruct }
             }
         }
     }
@@ -140,9 +140,9 @@ impl Generator {
                 let fields = fields.named.iter().map(|f| {
                 let ty = &f.ty;
                 let name = f.ident.as_ref().unwrap().to_string();
-                quote_spanned!(f.span() => &#postcard_schema::schema::NamedValue { name: #name, ty: <#ty as #postcard_schema::Schema>::SCHEMA })
+                quote_spanned!(f.span() => &#postcard_schema::NamedValue { name: #name, ty: <#ty as #postcard_schema::Schema>::SCHEMA })
             });
-                quote! { &#postcard_schema::schema::DataModelVariant::StructVariant(&[
+                quote! { &#postcard_schema::DataModelVariant::StructVariant(&[
                     #( #fields ),*
                 ]) }
             }
@@ -152,19 +152,19 @@ impl Generator {
                     let ty = &f.ty;
                     let qs = quote_spanned!(f.span() => <#ty as #postcard_schema::Schema>::SCHEMA);
 
-                    quote! { &#postcard_schema::schema::DataModelVariant::NewtypeVariant(#qs) }
+                    quote! { &#postcard_schema::DataModelVariant::NewtypeVariant(#qs) }
                 } else {
                     let fields = fields.unnamed.iter().map(|f| {
                         let ty = &f.ty;
                         quote_spanned!(f.span() => <#ty as #postcard_schema::Schema>::SCHEMA)
                     });
-                    quote! { &#postcard_schema::schema::DataModelVariant::TupleVariant(&[
+                    quote! { &#postcard_schema::DataModelVariant::TupleVariant(&[
                         #( #fields ),*
                     ]) }
                 }
             }
             syn::Fields::Unit => {
-                quote! { &#postcard_schema::schema::DataModelVariant::UnitVariant }
+                quote! { &#postcard_schema::DataModelVariant::UnitVariant }
             }
         }
     }

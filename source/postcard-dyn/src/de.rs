@@ -1,6 +1,6 @@
 use std::str::from_utf8;
 
-use postcard_schema::schema::owned::{OwnedDataModelType, OwnedDataModelVariant, OwnedNamedType};
+use postcard_schema::owned::{OwnedDataModelType, OwnedDataModelVariant, OwnedNamedType};
 use serde_json::{Map, Number, Value};
 
 use crate::de::varint::de_zig_zag_i16;

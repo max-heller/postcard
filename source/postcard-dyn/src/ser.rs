@@ -1,6 +1,6 @@
 use std::num::TryFromIntError;
 
-use postcard_schema::schema::owned::{OwnedDataModelType, OwnedDataModelVariant, OwnedNamedType};
+use postcard_schema::owned::{OwnedDataModelType, OwnedDataModelVariant, OwnedNamedType};
 use serde_json::Value;
 use varint::{
     varint_max, varint_u128, varint_u16, varint_u32, varint_u64, varint_usize, zig_zag_i128,
