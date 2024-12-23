@@ -121,10 +121,16 @@ pub enum OwnedDataModelType {
     Char,
 
     /// The `String` Serde Data Model Type
-    String,
+    String {
+        /// The maximum length of the string in bytes
+        max_len: Option<usize>,
+    },
 
     /// The `&[u8]` Serde Data Model Type
-    ByteArray,
+    ByteArray {
+        /// The maximum length of the bytes
+        max_len: Option<usize>,
+    },
 
     /// The `Option<T>` Serde Data Model Type
     Option(Box<OwnedNamedType>),
@@ -139,7 +145,12 @@ pub enum OwnedDataModelType {
     NewtypeStruct(Box<OwnedNamedType>),
 
     /// The "Sequence" Serde Data Model Type
-    Seq(Box<OwnedNamedType>),
+    Seq {
+        /// The element repeated in the sequence
+        element: Box<OwnedNamedType>,
+        /// The maximum number of elements that may be present
+        max_len: Option<usize>,
+    },
 
     /// The "Tuple" Serde Data Model Type
     Tuple(Vec<OwnedNamedType>),
@@ -153,6 +164,8 @@ pub enum OwnedDataModelType {
         key: Box<OwnedNamedType>,
         /// The map "Value" type
         val: Box<OwnedNamedType>,
+        /// The maximum number of entries that may be present
+        max_len: Option<usize>,
     },
 
     /// The "Struct" Serde Data Model Type
@@ -184,20 +197,27 @@ impl From<&DataModelType> for OwnedDataModelType {
             DataModelType::F32 => Self::F32,
             DataModelType::F64 => Self::F64,
             DataModelType::Char => Self::Char,
-            DataModelType::String => Self::String,
-            DataModelType::ByteArray => Self::ByteArray,
+            DataModelType::String { max_len } => Self::String { max_len: *max_len },
+            DataModelType::ByteArray { max_len } => Self::ByteArray { max_len: *max_len },
             DataModelType::Option(o) => Self::Option(Box::new((*o).into())),
             DataModelType::Unit => Self::Unit,
             DataModelType::UnitStruct => Self::UnitStruct,
             DataModelType::NewtypeStruct(nts) => Self::NewtypeStruct(Box::new((*nts).into())),
-            DataModelType::Seq(s) => Self::Seq(Box::new((*s).into())),
+            DataModelType::Seq {
+                element: s,
+                max_len,
+            } => Self::Seq {
+                element: Box::new((*s).into()),
+                max_len: *max_len,
+            },
             DataModelType::Tuple(t) => Self::Tuple(t.iter().map(|i| (*i).into()).collect()),
             DataModelType::TupleStruct(ts) => {
                 Self::TupleStruct(ts.iter().map(|i| (*i).into()).collect())
             }
-            DataModelType::Map { key, val } => Self::Map {
+            DataModelType::Map { key, val, max_len } => Self::Map {
                 key: Box::new((*key).into()),
                 val: Box::new((*val).into()),
+                max_len: *max_len,
             },
             DataModelType::Struct(s) => Self::Struct(s.iter().map(|i| (*i).into()).collect()),
             DataModelType::Enum(e) => Self::Enum(e.iter().map(|i| (*i).into()).collect()),

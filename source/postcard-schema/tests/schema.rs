@@ -137,10 +137,13 @@ fn test_struct_serialize() {
                     name: "f",
                     ty: &NamedType {
                         name: "[T]",
-                        ty: &DataModelType::Seq(&NamedType {
-                            name: "u8",
-                            ty: &DataModelType::U8
-                        })
+                        ty: &DataModelType::Seq {
+                            element: &NamedType {
+                                name: "u8",
+                                ty: &DataModelType::U8
+                            },
+                            max_len: None,
+                        }
                     }
                 },
             ]),
@@ -157,7 +160,10 @@ fn test_slice_serialize() {
                 name: "x",
                 ty: &NamedType {
                     name: "[T]",
-                    ty: &DataModelType::Seq(&U8_SCHEMA)
+                    ty: &DataModelType::Seq {
+                        element: &U8_SCHEMA,
+                        max_len: None,
+                    }
                 }
             },]),
         },
@@ -204,7 +210,7 @@ fn owned_punning() {
 
     // TODO: This is wildly repetitive, and likely could benefit from interning of
     // repeated types, strings, etc.
-    assert_eq!(ser_borrowed_schema.len(), 268);
+    assert_eq!(ser_borrowed_schema.len(), 270);
 
     // Check that we round-trip correctly
     let deser_borrowed_schema =

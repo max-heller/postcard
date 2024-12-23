@@ -162,7 +162,7 @@ fn ser_named_type(ty: &OwnedDataModelType, value: &Value, out: &mut Vec<u8>) -> 
             let val = val.to_le_bytes();
             out.extend_from_slice(&val);
         }
-        OwnedDataModelType::String | OwnedDataModelType::Char => {
+        OwnedDataModelType::String { .. } | OwnedDataModelType::Char => {
             let val = value.as_str().right()?;
 
             // First add len
@@ -174,7 +174,7 @@ fn ser_named_type(ty: &OwnedDataModelType, value: &Value, out: &mut Vec<u8>) -> 
             // Then add payload
             out.extend_from_slice(val.as_bytes());
         }
-        OwnedDataModelType::ByteArray => {
+        OwnedDataModelType::ByteArray { .. } => {
             let val = value.as_array().right()?;
 
             // First add len
@@ -203,7 +203,10 @@ fn ser_named_type(ty: &OwnedDataModelType, value: &Value, out: &mut Vec<u8>) -> 
         OwnedDataModelType::NewtypeStruct(nt) => {
             ser_named_type(&nt.ty, value, out)?;
         }
-        OwnedDataModelType::Seq(nt) => {
+        OwnedDataModelType::Seq {
+            element: nt,
+            max_len: _,
+        } => {
             let val = value.as_array().right()?;
 
             // First add len
@@ -233,12 +236,16 @@ fn ser_named_type(ty: &OwnedDataModelType, value: &Value, out: &mut Vec<u8>) -> 
                 ser_named_type(&nt.ty, val, out)?;
             }
         }
-        OwnedDataModelType::Map { key, val } => {
+        OwnedDataModelType::Map {
+            key,
+            val,
+            max_len: _,
+        } => {
             // TODO: impling blind because we can't test this, oops
             //
             // TODO: There's also a mismatch here because serde_json::Value requires
             // keys to be strings, when postcard doesn't.
-            if key.ty != OwnedDataModelType::String {
+            if !matches!(key.ty, OwnedDataModelType::String { .. }) {
                 return Err(Error::ShouldSupportButDont);
             }
 

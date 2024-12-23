@@ -98,10 +98,16 @@ pub enum DataModelType {
     Char,
 
     /// The `String` Serde Data Model Type
-    String,
+    String {
+        /// The maximum length of the string in bytes
+        max_len: Option<usize>,
+    },
 
     /// The `&[u8]` Serde Data Model Type
-    ByteArray,
+    ByteArray {
+        /// The maximum length of the bytes
+        max_len: Option<usize>,
+    },
 
     /// The `Option<T>` Serde Data Model Type
     Option(&'static NamedType),
@@ -116,7 +122,12 @@ pub enum DataModelType {
     NewtypeStruct(&'static NamedType),
 
     /// The "Sequence" Serde Data Model Type
-    Seq(&'static NamedType),
+    Seq {
+        /// The element repeated in the sequence
+        element: &'static NamedType,
+        /// The maximum number of elements that may be present
+        max_len: Option<usize>,
+    },
 
     /// The "Tuple" Serde Data Model Type
     Tuple(&'static [&'static NamedType]),
@@ -130,6 +141,8 @@ pub enum DataModelType {
         key: &'static NamedType,
         /// The map "Value" type
         val: &'static NamedType,
+        /// The maximum number of entries that may be present
+        max_len: Option<usize>,
     },
 
     /// The "Struct" Serde Data Model Type

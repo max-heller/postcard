@@ -9,7 +9,10 @@ use crate::{
 impl<T: Schema> Schema for std::vec::Vec<T> {
     const SCHEMA: &'static NamedType = &NamedType {
         name: "Vec<T>",
-        ty: &DataModelType::Seq(T::SCHEMA),
+        ty: &DataModelType::Seq {
+            element: T::SCHEMA,
+            max_len: None,
+        },
     };
 }
 
@@ -17,7 +20,7 @@ impl<T: Schema> Schema for std::vec::Vec<T> {
 impl Schema for std::string::String {
     const SCHEMA: &'static NamedType = &NamedType {
         name: "String",
-        ty: &DataModelType::String,
+        ty: &DataModelType::String { max_len: None },
     };
 }
 
@@ -28,6 +31,7 @@ impl<K: Schema, V: Schema> Schema for std::collections::HashMap<K, V> {
         ty: &DataModelType::Map {
             key: K::SCHEMA,
             val: V::SCHEMA,
+            max_len: None,
         },
     };
 }
@@ -39,6 +43,7 @@ impl<K: Schema, V: Schema> Schema for std::collections::BTreeMap<K, V> {
         ty: &DataModelType::Map {
             key: K::SCHEMA,
             val: V::SCHEMA,
+            max_len: None,
         },
     };
 }
@@ -47,7 +52,10 @@ impl<K: Schema, V: Schema> Schema for std::collections::BTreeMap<K, V> {
 impl<K: Schema> Schema for std::collections::HashSet<K> {
     const SCHEMA: &'static NamedType = &NamedType {
         name: "HashSet<K>",
-        ty: &DataModelType::Seq(K::SCHEMA),
+        ty: &DataModelType::Seq {
+            element: K::SCHEMA,
+            max_len: None,
+        },
     };
 }
 
@@ -55,6 +63,9 @@ impl<K: Schema> Schema for std::collections::HashSet<K> {
 impl<K: Schema> Schema for std::collections::BTreeSet<K> {
     const SCHEMA: &'static NamedType = &NamedType {
         name: "BTreeSet<K>",
-        ty: &DataModelType::Seq(K::SCHEMA),
+        ty: &DataModelType::Seq {
+            element: K::SCHEMA,
+            max_len: None,
+        },
     };
 }

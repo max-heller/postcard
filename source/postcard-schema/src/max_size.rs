@@ -1,7 +1,8 @@
 //! .
 
 use crate::{
-    const_helpers::nty_eq, schema::{DataModelType, DataModelVariant, NamedType}, Schema
+    schema::{DataModelType, DataModelVariant, NamedType},
+    Schema,
 };
 
 /// Calculate the max size of a type that impls Schema
@@ -10,11 +11,7 @@ use crate::{
 /// (such as unchecked access), as manual schema impls can
 /// be wrong.
 pub const fn max_size<T: Schema>() -> Option<usize> {
-    if let Some(sz) = T::MANUAL_MAX_SIZE {
-        Some(sz)
-    } else {
-        max_size_nt(T::SCHEMA)
-    }
+    max_size_nt(T::SCHEMA)
 }
 
 /// Calculate the max size of a NamedType
@@ -23,15 +20,11 @@ pub const fn max_size_nt(nt: &NamedType) -> Option<usize> {
 }
 
 /// .
-pub const fn bounded_seq_max<Outer: Schema, Inner: Schema, const N: usize>() -> Option<usize> {
-    let DataModelType::Seq(nt) = Outer::SCHEMA.ty else {
-        panic!("Not a bounded seq!");
-    };
-    assert!(nty_eq(nt, Inner::SCHEMA), "Mismatched Outer/Inner types!");
-    let size_one = max_size::<Inner>();
-    if let Some(sz) = size_one {
-        let data_sz = sz * N;
-        let varint_sz = size_as_varint_usize(N);
+pub const fn bounded_seq_max(element: &NamedType, max_len: Option<usize>) -> Option<usize> {
+    let size_one = max_size_nt(element);
+    if let (Some(sz), Some(n)) = (size_one, max_len) {
+        let data_sz = sz * n;
+        let varint_sz = size_as_varint_usize(n);
         Some(data_sz + varint_sz)
     } else {
         None
@@ -39,11 +32,32 @@ pub const fn bounded_seq_max<Outer: Schema, Inner: Schema, const N: usize>() -> 
 }
 
 /// .
-pub const fn bounded_string_max<const N: usize>() -> Option<usize> {
-    // Measured in bytes
-    let data_sz = N;
-    let varint_sz = size_as_varint_usize(N);
-    Some(data_sz + varint_sz)
+pub const fn bounded_map_max(
+    key: &NamedType,
+    val: &NamedType,
+    max_len: Option<usize>,
+) -> Option<usize> {
+    let size_key = max_size_nt(key);
+    let size_val = max_size_nt(val);
+    if let (Some(key), Some(val), Some(n)) = (size_key, size_val, max_len) {
+        let data_sz = (key + val) * n;
+        let varint_sz = size_as_varint_usize(n);
+        Some(data_sz + varint_sz)
+    } else {
+        None
+    }
+}
+
+/// .
+pub const fn bounded_string_max(max_len: Option<usize>) -> Option<usize> {
+    if let Some(n) = max_len {
+        // Measured in bytes
+        let data_sz = n;
+        let varint_sz = size_as_varint_usize(n);
+        Some(data_sz + varint_sz)
+    } else {
+        None
+    }
 }
 
 /// Calculate the size (in bytes) it would take to store this
@@ -77,13 +91,13 @@ pub const fn max_size_dmt(dmt: &DataModelType) -> Option<usize> {
         DataModelType::F32 => Some(4),
         DataModelType::F64 => Some(8),
         DataModelType::Char => Some(5), // I think? 1 len + up to 4 bytes
-        DataModelType::String => None,
-        DataModelType::ByteArray => None,
+        DataModelType::String { max_len } => bounded_string_max(*max_len),
+        DataModelType::ByteArray { max_len } => bounded_string_max(*max_len),
         DataModelType::Option(nt) => max_size_nt(nt),
         DataModelType::Unit => Some(0),
         DataModelType::UnitStruct => Some(0),
         DataModelType::NewtypeStruct(nt) => max_size_nt(nt),
-        DataModelType::Seq(_) => None,
+        DataModelType::Seq { element, max_len } => bounded_seq_max(element, *max_len),
         DataModelType::Tuple(nts) | DataModelType::TupleStruct(nts) => {
             let mut i = 0;
             let mut ct = 0;
@@ -96,7 +110,7 @@ pub const fn max_size_dmt(dmt: &DataModelType) -> Option<usize> {
             }
             Some(ct)
         }
-        DataModelType::Map { .. } => None,
+        DataModelType::Map { key, val, max_len } => bounded_map_max(key, val, *max_len),
         DataModelType::Struct(nvals) => {
             let mut i = 0;
             let mut ct = 0;

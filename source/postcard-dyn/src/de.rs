@@ -139,14 +139,14 @@ fn de_named_type<'a>(ty: &OwnedDataModelType, data: &'a [u8]) -> Result<(Value, 
             Ok((val, rest))
         }
         OwnedDataModelType::Char => todo!(),
-        OwnedDataModelType::String => {
+        OwnedDataModelType::String { max_len: _ } => {
             let (val, rest) = try_take_varint_usize(data)?;
             let (bytes, rest) = rest.take_n(val)?;
             let s = from_utf8(bytes).map_err(|_| Error::SchemaMismatch)?;
             let val = Value::String(s.to_string());
             Ok((val, rest))
         }
-        OwnedDataModelType::ByteArray => {
+        OwnedDataModelType::ByteArray { max_len: _ } => {
             let (val, rest) = try_take_varint_usize(data)?;
             let (bytes, rest) = rest.take_n(val)?;
             let vvec = bytes
@@ -171,7 +171,10 @@ fn de_named_type<'a>(ty: &OwnedDataModelType, data: &'a [u8]) -> Result<(Value, 
             Ok((Value::Null, data))
         }
         OwnedDataModelType::NewtypeStruct(nt) => de_named_type(&nt.ty, data),
-        OwnedDataModelType::Seq(nt) => {
+        OwnedDataModelType::Seq {
+            element: nt,
+            max_len: _,
+        } => {
             let (val, mut rest) = try_take_varint_usize(data)?;
             let mut vec = vec![];
             for _ in 0..val {
@@ -203,12 +206,16 @@ fn de_named_type<'a>(ty: &OwnedDataModelType, data: &'a [u8]) -> Result<(Value, 
                 }
             }
         }
-        OwnedDataModelType::Map { key, val } => {
+        OwnedDataModelType::Map {
+            key,
+            val,
+            max_len: _,
+        } => {
             // TODO: impling blind because we can't test this, oops
             //
             // TODO: There's also a mismatch here because serde_json::Value requires
             // keys to be strings, when postcard doesn't.
-            if key.ty != OwnedDataModelType::String {
+            if !matches!(key.ty, OwnedDataModelType::String { .. }) {
                 return Err(Error::ShouldSupportButDont);
             }
 

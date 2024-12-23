@@ -46,7 +46,7 @@ impl_schema![
     f32: DataModelType::F32,
     f64: DataModelType::F64,
     char: DataModelType::Char,
-    str: DataModelType::String,
+    str: DataModelType::String { max_len: None },
     (): DataModelType::Unit,
     i16: DataModelType::I16, i32: DataModelType::I32, i64: DataModelType::I64, i128: DataModelType::I128,
     u16: DataModelType::U16, u32: DataModelType::U32, u64: DataModelType::U64, u128: DataModelType::U128,
@@ -94,7 +94,10 @@ impl<T: Schema + ?Sized> Schema for &'_ T {
 impl<T: Schema> Schema for [T] {
     const SCHEMA: &'static NamedType = &NamedType {
         name: "[T]",
-        ty: &DataModelType::Seq(T::SCHEMA),
+        ty: &DataModelType::Seq {
+            element: T::SCHEMA,
+            max_len: None,
+        },
     };
 }
 impl<T: Schema, const N: usize> Schema for [T; N] {

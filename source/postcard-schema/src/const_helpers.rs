@@ -27,8 +27,8 @@ pub const fn is_prim(dmt: &DataModelType) -> bool {
         DataModelType::F32 => true,
         DataModelType::F64 => true,
         DataModelType::Char => true,
-        DataModelType::String => true,
-        DataModelType::ByteArray => true,
+        DataModelType::String { .. } => true,
+        DataModelType::ByteArray { .. } => true,
         DataModelType::Unit => true,
         DataModelType::Schema => true,
 
@@ -37,7 +37,9 @@ pub const fn is_prim(dmt: &DataModelType) -> bool {
         DataModelType::UnitStruct => false,
         // Items with subtypes are composite, and therefore not primitives, as
         // we need to convey this information.
-        DataModelType::Option(_) | DataModelType::NewtypeStruct(_) | DataModelType::Seq(_) => false,
+        DataModelType::Option(_) | DataModelType::NewtypeStruct(_) | DataModelType::Seq { .. } => {
+            false
+        }
         DataModelType::Tuple(_) | DataModelType::TupleStruct(_) => false,
         DataModelType::Map { .. } => false,
         DataModelType::Struct(_) => false,
@@ -104,8 +106,10 @@ pub const fn dmt_eq(a: &DataModelType, b: &DataModelType) -> bool {
         (DataModelType::F32, DataModelType::F32) => true,
         (DataModelType::F64, DataModelType::F64) => true,
         (DataModelType::Char, DataModelType::Char) => true,
-        (DataModelType::String, DataModelType::String) => true,
-        (DataModelType::ByteArray, DataModelType::ByteArray) => true,
+        // TODO: should length bounds be taken into account?
+        (DataModelType::String { .. }, DataModelType::String { .. }) => true,
+        // TODO: should length bounds be taken into account?
+        (DataModelType::ByteArray { .. }, DataModelType::ByteArray { .. }) => true,
         (DataModelType::Unit, DataModelType::Unit) => true,
         (DataModelType::UnitStruct, DataModelType::UnitStruct) => true,
         (DataModelType::Schema, DataModelType::Schema) => true,
@@ -113,7 +117,16 @@ pub const fn dmt_eq(a: &DataModelType, b: &DataModelType) -> bool {
         // For non-primitive types, we check whether all children are equivalent as well.
         (DataModelType::Option(nta), DataModelType::Option(ntb)) => nty_eq(nta, ntb),
         (DataModelType::NewtypeStruct(nta), DataModelType::NewtypeStruct(ntb)) => nty_eq(nta, ntb),
-        (DataModelType::Seq(nta), DataModelType::Seq(ntb)) => nty_eq(nta, ntb),
+        (
+            DataModelType::Seq {
+                element: nta,
+                max_len: _,
+            },
+            DataModelType::Seq {
+                element: ntb,
+                max_len: _,
+            },
+        ) => nty_eq(nta, ntb), // TODO: should length bounds be taken into account?
 
         (DataModelType::Tuple(ntsa), DataModelType::Tuple(ntsb)) => ntys_eq(ntsa, ntsb),
         (DataModelType::TupleStruct(ntsa), DataModelType::TupleStruct(ntsb)) => ntys_eq(ntsa, ntsb),
@@ -121,12 +134,14 @@ pub const fn dmt_eq(a: &DataModelType, b: &DataModelType) -> bool {
             DataModelType::Map {
                 key: keya,
                 val: vala,
+                max_len: _,
             },
             DataModelType::Map {
                 key: keyb,
                 val: valb,
+                max_len: _,
             },
-        ) => nty_eq(keya, keyb) && nty_eq(vala, valb),
+        ) => nty_eq(keya, keyb) && nty_eq(vala, valb), // TODO: should length bounds be taken into account?
         (DataModelType::Struct(nvalsa), DataModelType::Struct(nvalsb)) => vals_eq(nvalsa, nvalsb),
         (DataModelType::Enum(nvarsa), DataModelType::Enum(nvarsb)) => vars_eq(nvarsa, nvarsb),
 

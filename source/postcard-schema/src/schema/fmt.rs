@@ -33,16 +33,20 @@ pub fn is_prim(osdmty: &OwnedDataModelType) -> bool {
         OwnedDataModelType::F32 => true,
         OwnedDataModelType::F64 => true,
         OwnedDataModelType::Char => true,
-        OwnedDataModelType::String => true,
-        OwnedDataModelType::ByteArray => true,
+        OwnedDataModelType::String { .. } => true,
+        OwnedDataModelType::ByteArray { .. } => true,
         OwnedDataModelType::Option(owned_named_type) => is_prim(&owned_named_type.ty),
         OwnedDataModelType::Unit => true,
         OwnedDataModelType::UnitStruct => true,
         OwnedDataModelType::NewtypeStruct(owned_named_type) => is_prim(&owned_named_type.ty),
-        OwnedDataModelType::Seq(_) => false,
+        OwnedDataModelType::Seq { .. } => false,
         OwnedDataModelType::Tuple(_) => false,
         OwnedDataModelType::TupleStruct(vec) => vec.iter().all(|e| is_prim(&e.ty)),
-        OwnedDataModelType::Map { key, val } => is_prim(&key.ty) && is_prim(&val.ty),
+        OwnedDataModelType::Map {
+            key,
+            val,
+            max_len: _,
+        } => is_prim(&key.ty) && is_prim(&val.ty),
         OwnedDataModelType::Struct(_) => false,
         OwnedDataModelType::Enum(_) => false,
         OwnedDataModelType::Schema => true,
@@ -71,8 +75,8 @@ pub fn fmt_owned_nt_to_buf(ont: &OwnedNamedType, buf: &mut String, top_level: bo
         OwnedDataModelType::F32 => *buf += "f32",
         OwnedDataModelType::F64 => *buf += "f64",
         OwnedDataModelType::Char => *buf += "char",
-        OwnedDataModelType::String => *buf += "String",
-        OwnedDataModelType::ByteArray => *buf += "[u8]",
+        OwnedDataModelType::String { .. } => *buf += "String",
+        OwnedDataModelType::ByteArray { .. } => *buf += "[u8]",
         OwnedDataModelType::Option(owned_named_type) => {
             *buf += "Option<";
             fmt_owned_nt_to_buf(owned_named_type, buf, false);
@@ -96,9 +100,12 @@ pub fn fmt_owned_nt_to_buf(ont: &OwnedNamedType, buf: &mut String, top_level: bo
                 *buf += ")";
             }
         }
-        OwnedDataModelType::Seq(owned_named_type) => {
+        OwnedDataModelType::Seq {
+            element,
+            max_len: _,
+        } => {
             *buf += "[";
-            *buf += &owned_named_type.name;
+            *buf += &element.name;
             *buf += "]";
         }
         OwnedDataModelType::Tuple(vec) => {
@@ -149,7 +156,11 @@ pub fn fmt_owned_nt_to_buf(ont: &OwnedNamedType, buf: &mut String, top_level: bo
                 *buf += &ont.name;
             }
         }
-        OwnedDataModelType::Map { key, val } => {
+        OwnedDataModelType::Map {
+            key,
+            val,
+            max_len: _,
+        } => {
             *buf += "Map<";
             *buf += &key.name;
             *buf += ", ";
@@ -275,8 +286,8 @@ pub fn discover_tys_sdm(
         OwnedDataModelType::F32 => set.insert(f32::SCHEMA.into()),
         OwnedDataModelType::F64 => set.insert(f64::SCHEMA.into()),
         OwnedDataModelType::Char => set.insert(char::SCHEMA.into()),
-        OwnedDataModelType::String => set.insert(String::SCHEMA.into()),
-        OwnedDataModelType::ByteArray => set.insert(<[u8]>::SCHEMA.into()),
+        OwnedDataModelType::String { .. } => set.insert(String::SCHEMA.into()),
+        OwnedDataModelType::ByteArray { .. } => set.insert(<[u8]>::SCHEMA.into()),
         OwnedDataModelType::Option(owned_named_type) => {
             discover_tys(owned_named_type, set);
             false
@@ -287,8 +298,11 @@ pub fn discover_tys_sdm(
             discover_tys(owned_named_type, set);
             false
         }
-        OwnedDataModelType::Seq(owned_named_type) => {
-            discover_tys(owned_named_type, set);
+        OwnedDataModelType::Seq {
+            element,
+            max_len: _,
+        } => {
+            discover_tys(element, set);
             false
         }
         OwnedDataModelType::Tuple(vec) | OwnedDataModelType::TupleStruct(vec) => {
@@ -297,7 +311,11 @@ pub fn discover_tys_sdm(
             }
             false
         }
-        OwnedDataModelType::Map { key, val } => {
+        OwnedDataModelType::Map {
+            key,
+            val,
+            max_len: _,
+        } => {
             discover_tys(key, set);
             discover_tys(val, set);
             false
